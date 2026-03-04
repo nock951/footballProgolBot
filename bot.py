@@ -1,0 +1,189 @@
+import discord
+from discord.ext import commands, tasks
+import sqlite3
+import requests
+import pandas as pd
+import joblib
+import json
+import time
+from datetime import datetime, timedelta
+
+# Configuración
+with open('config.json', 'r') as f:
+    config = json.load(f)
+
+TOKEN = "MTQ3ODUzOTM4NDM5NDM1MDcxNA.GqeWmh._k3Qd8jY987no3SJc162tz6dweoUGI0n9tNpHU"
+API_KEY = "11d318bb5503b30f955ffe966fb845ed"
+OPENWEATHER_API_KEY = "TU_API_KEY_CLIMA"  # Opcional
+
+# Inicializar bot
+bot = commands.Bot(command_prefix="!", intents=discord.Intents.all())
+
+# Conexión a base de datos
+conn = sqlite3.connect('futbol.db')
+cursor = conn.cursor()
+
+# Crear tablas si no existen
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS partidos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fecha TEXT,
+    equipo_local TEXT,
+    equipo_visitante TEXT,
+    goles_local INTEGER,
+    goles_visitante INTEGER,
+    liga TEXT
+)
+''')
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS predicciones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    partido_id INTEGER,
+    prediccion TEXT,
+    probabilidad REAL,
+    acierto BOOLEAN,
+    FOREIGN KEY(partido_id) REFERENCES partidos(id)
+)
+''')
+conn.commit()
+
+# Cargar modelo
+try:
+    model = joblib.load('modelo_futbol.pkl')
+except FileNotFoundError:
+    model = None
+
+@bot.event
+async def on_ready():
+    print(f"Bot listo como {bot.user}")
+    check_progol.start()
+
+@tasks.loop(hours=1)
+async def check_progol():
+    now = datetime.now()
+    # Verificar si es 2 horas antes del cierre
+    for sorteo in config["proximos_sorteos"]:
+        if sorteo["tipo"] == "sorteo":
+            hora_cierre = datetime.strptime(sorteo["hora_cierre"], "%H:%M").time()
+            if now.hour == hora_cierre.hour - 2 and now.minute == hora_cierre.minute:
+                await publish_progol(sorteo)
+        elif sorteo["tipo"] == "sorteo_ms":
+            hora_cierre = datetime.strptime(sorteo["hora_cierre"], "%H:%M").time()
+            if now.hour == hora_cierre.hour - 2 and now.minute == hora_cierre.minute:
+                await publish_progol(sorteo)
+
+async def publish_progol(sorteo):
+    channel = bot.get_channel(123456789)  # ID del canal #sorteo-progol
+    if not channel:
+        return
+
+    # Obtener partidos del sorteo
+    partidos = get_progol_matches(sorteo["id"])
+    for partido in partidos:
+        equipo1 = partido["equipo_local"]
+        equipo2 = partido["equipo_visitante"]
+        stats = get_team_stats(equipo1, equipo2)
+        prediction = get_predictions(equipo1, equipo2)
+        news = get_news(equipo1, equipo2)
+        weather = get_weather(equipo1)
+
+        message = f"""
+🎯 PROGOL - Sorteo {sorteo["id"]} (Cierre: {sorteo["hora_cierre"]})
+📅 Fecha: {sorteo["fecha"]}
+⏰ Hora: {datetime.now().strftime("%H:%M")}
+{partido["fecha"]}
+
+⚽ Partido: {equipo1} vs {equipo2}
+📊 Estadísticas:
+{stats}
+⚠️ Factores clave:
+{news}
+🌤️ Clima: {weather}
+🔮 Predicciones:
+{prediction}
+"""
+        await channel.send(message)
+
+def get_progol_matches(sorteo_id):
+    # Simulación de partidos del sorteo
+    return [
+        {
+            "sorteo_id": sorteo_id,
+            "fecha": "10/04/2025",
+            "equipo_local": "Real Madrid",
+            "equipo_visitante": "Barcelona"
+        },
+        {
+            "sorteo_id": sorteo_id,
+            "fecha": "10/04/2025",
+            "equipo_local": "Manchester City",
+            "equipo_visitante": "Liverpool"
+        }
+    ]
+
+def get_team_stats(equipo1, equipo2):
+    # Simulación de estadísticas
+    return f"""
+- {equipo1}: 68% posesión, 5.2 tiros esquina (local)
+- {equipo2}: 52% posesión, 4.8 tiros esquina (visitante)
+"""
+
+def get_predictions(equipo1, equipo2):
+    # Simulación de predicciones
+    return f"""
+- Lógica: 1 (Probabilidad: 65%)
+- Sorpresa: 2 (Probabilidad: 30%)
+- Patrón Histórico: 1 (Probabilidad: 70%)
+"""
+
+def get_news(equipo1, equipo2):
+    # Simulación de noticias
+    return f"""
+- Lesionado: Vinícius Jr. (golpe en rodilla, 2 semanas)
+- Cambio de técnico: Ancelotti (desde 1/7/2025)
+- Historial: 3-2 en favor de {equipo1} (últimos 5 partidos)
+"""
+
+def get_weather(equipo1):
+    # Simulación de clima
+    return f"""
+🌡️ 12°C | Mín: 8°C | Máx: 15°C
+🌧️ Lluvia ligera
+💨 Viento: 15 km/h del oeste
+💧 Humedad: 85%
+⚠️ Impacto: Alto riesgo de campo mojado → posibles errores
+"""
+
+@bot.command()
+async def resultados(ctx):
+    await ctx.send("Mostrando resultados del día...")
+
+@bot.command()
+async def predecir(ctx, equipo1: str, equipo2: str):
+    await ctx.send(f"Predicción para {equipo1} vs {equipo2}: 1 (Probabilidad: 65%)")
+
+@bot.command()
+async def estadisticas(ctx, equipo: str):
+    await ctx.send(f"Estadísticas de {equipo}: Posesión 68%, Tiros esquina 5.2 (local)")
+
+@bot.command()
+async def estadisticas_jugador(ctx, jugador: str):
+    await ctx.send(f"Estadísticas de {jugador}: Goles 5, Asistencias 3, Remates 4.2")
+
+@bot.command()
+async def noticias(ctx, equipo: str):
+    await ctx.send(f"Noticias de {equipo}: Nuevo entrenador, lesionados, sanciones")
+
+@bot.command()
+async def clima(ctx, equipo: str):
+    await ctx.send(f"Clima en {equipo}: 12°C, Lluvia ligera")
+
+@bot.command()
+async def progol(ctx):
+    await ctx.send("Mostrando partidos del sorteo actual...")
+
+@bot.command()
+async def partido(ctx, equipo1: str, equipo2: str):
+    await ctx.send(f"Estadísticas de {equipo1} vs {equipo2}: Predicción 1 (Probabilidad: 65%)")
+
+bot.run(TOKEN)

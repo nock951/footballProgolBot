@@ -1,0 +1,42 @@
+{
+  "canales": {
+    "sorteo": "sorteo-progol",
+    "sorteo_ms": "sorteo-progol-ms",
+    "football_stats": "football-stats"
+  },
+  "ligas": [
+    "La Liga",
+    "Premier League",
+    "Serie A",
+    "Bundesliga",
+    "Liga MX",
+    "Eredivisie",
+    "MLS",
+    "Liga Femenil MX",
+    "Champions League",
+    "Europa League",
+    "Mundial de Clubes",
+    "Mundial de Selecciones",
+    "Nations League",
+    "Partidos Amistosos",
+    "Copa del Rey",
+    "FA Cup",
+    "Coupe de France",
+    "Coppa Italia",
+    "DFB-Pokal"
+  ],
+  "proximos_sorteos": [
+    {
+      "id": "1234",
+      "tipo": "sorteo",
+      "fecha": "10/04/2025",
+      "hora_cierre": "18:00"
+    },
+    {
+      "id": "1235",
+      "tipo": "sorteo_ms",
+      "fecha": "13/04/2025",
+      "hora_cierre": "18:00"
+    }
+  ]
+}

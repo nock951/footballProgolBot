@@ -1,0 +1,7 @@
+discord.py
+requests
+pandas
+numpy
+scikit-learn
+joblib
+sqlite3
